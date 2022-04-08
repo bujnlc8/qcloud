@@ -2,6 +2,8 @@
 name = "qcloud"
 version = "0.1.0"
 edition = "2021"
+description = "A command line tool to operate Tencent cloud object storage"
+license = "MIT"
 authors = ["bujnlc8 <75124771@qq.com>"]
 repository = "https://github.com/bujnlc8/qcloud"
 categories = ["command-line-utilities"]
