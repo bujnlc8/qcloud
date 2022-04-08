@@ -1,0 +1,4 @@
+secrect_key = "foo"
+secrect_id = "bar"
+bucket_name = "bucket_name"
+region = "region"
