@@ -2,11 +2,17 @@
 
 一个操作腾讯云对象存储的命令行工具。
 
+# 安装
+
+```sh
+cargo install qcloud
+```
+
 # 配置
 
 ```sh
 
-# 将里面的值替换成你的配置
+# 替换成你的配置
 1. mv qcloud.toml.example qcloud.toml 
 
 # 将qcloud.toml移动到 $HOME/.config 目录下，也可以通过`QCLOUD_CONFIG_DIR`环境变量来定义配置文件所在的目录
