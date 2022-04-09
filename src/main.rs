@@ -133,7 +133,7 @@ fn main() {
                     if let Some(e) = guess.first() {
                         me = e;
                     }
-                    let resp = client.put_object_binary(file, key_name, me, None);
+                    let resp = client.put_object(file, key_name, me, None, false);
                     if resp.error_no != ErrNo::SUCCESS {
                         println!("上传失败, {}", resp.error_message);
                     } else {
