@@ -67,6 +67,8 @@ enum Commands {
     Upload(Upload),
     /// 从腾讯云对象存储下载文件到本地
     Download(Download),
+    /// 从腾讯云存储删除文件
+    Delete(Delete),
 }
 
 #[derive(clap::Args)]
@@ -89,6 +91,13 @@ struct Download {
     file_name: Option<String>,
 }
 
+#[derive(clap::Args)]
+struct Delete {
+    /// 对象名称
+    #[clap(short, long)]
+    key_name: String,
+}
+
 fn main() {
     let path = get_config_path();
     let config = read_to_config(path.as_str());
@@ -107,6 +116,15 @@ fn main() {
             let mut key_name = &file_name;
             if let Some(ref key) = e.key_name {
                 key_name = key;
+            }
+            let path = std::path::Path::new(&file_name);
+            if path.is_dir() {
+                println!("不能上传文件夹");
+                return;
+            }
+            if !path.exists() {
+                println!("文件不存在或不可读");
+                return;
             }
             match std::fs::File::open(file_name.as_str()) {
                 Ok(file) => {
@@ -138,6 +156,15 @@ fn main() {
                 println!("下载失败, {}", resp.error_message);
             } else {
                 println!("下载成功");
+            }
+        }
+        Commands::Delete(e) => {
+            let key_name = e.key_name;
+            let resp = client.delete_object(key_name.as_str());
+            if resp.error_no != ErrNo::SUCCESS {
+                println!("删除失败, {}", resp.error_message);
+            } else {
+                println!("删除成功")
             }
         }
     }

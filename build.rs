@@ -41,6 +41,14 @@ fn main() {
                         .help("对象名称")
                         .required(true),
                 ),
+        )
+        .subcommand(
+            Command::new("delete").arg(
+                Arg::new("key-name")
+                    .short('k')
+                    .help("对象名称")
+                    .required(true),
+            ),
         );
     for shell in [
         Shell::Bash,
