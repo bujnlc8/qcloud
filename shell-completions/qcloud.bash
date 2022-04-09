@@ -12,6 +12,9 @@ _qcloud() {
             "$1")
                 cmd="qcloud"
                 ;;
+            delete)
+                cmd+="__delete"
+                ;;
             download)
                 cmd+="__download"
                 ;;
@@ -28,8 +31,22 @@ _qcloud() {
 
     case "${cmd}" in
         qcloud)
-            opts="-h --help upload download help"
+            opts="-h --help upload download delete help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        qcloud__delete)
+            opts="-k -h --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi

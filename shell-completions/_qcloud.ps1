@@ -25,6 +25,7 @@ Register-ArgumentCompleter -Native -CommandName 'qcloud' -ScriptBlock {
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             [CompletionResult]::new('upload', 'upload', [CompletionResultType]::ParameterValue, 'upload')
             [CompletionResult]::new('download', 'download', [CompletionResultType]::ParameterValue, 'download')
+            [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'delete')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -37,6 +38,12 @@ Register-ArgumentCompleter -Native -CommandName 'qcloud' -ScriptBlock {
         }
         'qcloud;download' {
             [CompletionResult]::new('-f', 'f', [CompletionResultType]::ParameterName, '本地保存文件名称, 如果未指定，和对象名称相同')
+            [CompletionResult]::new('-k', 'k', [CompletionResultType]::ParameterName, '对象名称')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+            break
+        }
+        'qcloud;delete' {
             [CompletionResult]::new('-k', 'k', [CompletionResultType]::ParameterName, '对象名称')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
