@@ -4,6 +4,10 @@
 
 # 安装
 
+从[release](https://github.com/bujnlc8/qcloud/releases)下载相应版本
+
+OR
+
 ```sh
 cargo install qcloud
 ```
@@ -25,9 +29,12 @@ cargo install qcloud
 ``` sh
 
 # 上传文件
-1. qcloud upload -f 本地文件 [-k 对象key-name]  
+qcloud upload -f 本地文件 [-k 对象key-name]  
 
 # 下载文件
-2. qcloud download -k 对象key-name [-f 本地保存文件名称] 
+qcloud download -k 对象key-name [-f 本地保存文件名称] 
+
+# 删除文件
+qcloud delete -k 对象key-name
 
 ```
