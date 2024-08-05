@@ -1,18 +1,16 @@
-[![qcloud](https://github.com/bujnlc8/qcloud/actions/workflows/qcloud.yml/badge.svg?branch=master)](https://github.com/bujnlc8/qcloud/actions/workflows/qcloud.yml)
+# qcloud
 
 一个操作腾讯云对象存储的命令行工具。
 
-# 安装
+## 安装
 
 从[release](https://github.com/bujnlc8/qcloud/releases)下载相应版本
 
 OR
 
-自行编译
+cargo install --path .
 
-cargo build --release --locked
-
-# 配置
+## 配置
 
 ```sh
 
@@ -36,5 +34,6 @@ qcloud download -k 对象key-name [-f 本地保存文件名称]
 
 # 删除文件
 qcloud delete -k 对象key-name
-
 ```
+
+更多的参数说明请输入`qcloud --help`查看
