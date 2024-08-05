@@ -1,2 +1,4 @@
 /target
 qcloud.toml
+artifacts/
+completions/
