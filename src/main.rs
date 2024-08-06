@@ -92,9 +92,18 @@ struct Upload {
     /// 本地文件路径，支持上传文件夹
     #[clap(short, long)]
     file_path: String,
+
     /// 对象名称, 如果未指定，和本地文件名称相同，如果是上传文件夹，则是目录名称
     #[clap(short, long)]
     key_name: Option<String>,
+
+    /// 最大上传线程数量，默认20
+    #[clap(long)]
+    max_threads: Option<u64>,
+
+    /// 分片上传的大小，单位bytes，1M-1GB之间，默认100M
+    #[clap(long)]
+    part_size: Option<u64>,
 }
 
 #[derive(clap::Args)]
@@ -161,8 +170,8 @@ async fn main() {
                         eprintln!("{}", "空文件夹！".red());
                         exit(1);
                     }
-                    // 最多20个线程上传
-                    let item_path_list = split_into_chunks(item_path, 20);
+                    // 最多30个线程上传
+                    let item_path_list = split_into_chunks(item_path, 30);
                     let mut handles = vec![];
                     for item_paths in item_path_list {
                         let config = config.clone();
@@ -197,11 +206,14 @@ async fn main() {
                                     content_type = e;
                                 }
                                 let resp = client
-                                    .put_object(
+                                    .put_big_object(
                                         item.to_str().unwrap(),
                                         &object_name,
-                                        content_type,
+                                        Some(content_type),
                                         None,
+                                        None,
+                                        e.part_size,
+                                        Some(1),
                                     )
                                     .await;
                                 if resp.error_no != ErrNo::SUCCESS {
@@ -256,7 +268,17 @@ async fn main() {
                 if let Some(e) = guess.first() {
                     me = e;
                 }
-                let resp = client.put_object(&file_name, &key_name, me, None).await;
+                let resp = client
+                    .put_big_object(
+                        &file_name,
+                        &key_name,
+                        Some(me),
+                        None,
+                        None,
+                        e.part_size,
+                        e.max_threads,
+                    )
+                    .await;
                 if resp.error_no != ErrNo::SUCCESS {
                     eprintln!(
                         "{}",

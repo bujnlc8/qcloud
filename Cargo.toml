@@ -1,6 +1,6 @@
 [package]
 name = "qcloud"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "A CLI to operate Tencent cloud object storage"
 license = "MIT"
@@ -9,7 +9,7 @@ repository = "https://github.com/bujnlc8/qcloud"
 categories = ["command-line-utilities"]
 
 [dependencies]
-qcos = "0.1.6"
+qcos = "0.1.7"
 clap = {version = "4", features = ["derive"]}
 clap_complete = "4"
 toml = "0.5.8"
@@ -17,7 +17,6 @@ serde = { version = "1.0", features = ["derive"] }
 dirs = "4.0.0"
 mime_guess = "2.0.4"
 tokio = { version = "1", features = ["full"] }
-openssl = { version = "0.10", features = ["vendored"] }
 chrono = "0.4.35"
 colored = "2.1.0"
 qrcode = {version = "0.14.1", default-features = false}
