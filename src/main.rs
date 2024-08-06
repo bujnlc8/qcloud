@@ -174,10 +174,10 @@ async fn main() {
                     let item_path_list = split_into_chunks(item_path, 30);
                     let mut handles = vec![];
                     for item_paths in item_path_list {
-                        let config = config.clone();
                         let item_paths = item_paths.clone();
                         let file_name = file_name.clone();
                         let key_name = e.key_name.clone();
+                        let client = client.clone();
                         let handle = tokio::spawn(async move {
                             let mut success = 0;
                             let mut fail = 0;
@@ -194,18 +194,13 @@ async fn main() {
                                     );
                                     object_name = object_name.replace("//", "/");
                                 }
-                                let client = qcos::client::Client::new(
-                                    &config.secrect_id,
-                                    &config.secrect_key,
-                                    &config.bucket_name,
-                                    &config.region,
-                                );
                                 let mut content_type = mime::APPLICATION_OCTET_STREAM;
                                 let guess = mime_guess::from_path(&item);
                                 if let Some(e) = guess.first() {
                                     content_type = e;
                                 }
                                 let resp = client
+                                    .clone()
                                     .put_big_object(
                                         item.to_str().unwrap(),
                                         &object_name,
