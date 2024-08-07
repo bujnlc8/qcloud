@@ -1,3 +1,6 @@
+[![Crates.io](https://img.shields.io/crates/v/qcloud?style=flat-square)](https://crates.io/crates/qcloud)
+[![qcloud](https://github.com/bujnlc8/qcloud/actions/workflows/qcloud.yml/badge.svg)](https://github.com/bujnlc8/qcloud/actions/workflows/qcloud.yml)
+
 # qcloud
 
 一个操作腾讯云对象存储的命令行工具。
