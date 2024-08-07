@@ -101,9 +101,17 @@ struct Upload {
     #[clap(long)]
     max_threads: Option<u64>,
 
-    /// 分片上传的大小，单位bytes，1M-1GB之间，默认100M
+    /// 分片上传的大小，单位bytes，1M-1GB之间，默认50M
     #[clap(long)]
     part_size: Option<u64>,
+
+    /// 不显示上传进度条
+    #[clap(long)]
+    no_progress_bar: bool,
+
+    /// 不输出下载链接二维码
+    #[clap(long)]
+    no_qrcode: bool,
 }
 
 #[derive(clap::Args)]
@@ -244,7 +252,7 @@ async fn main() {
                     println!(
                         "{}",
                         format!(
-                            "文件夹 {} 上传完成 ✅\n共 {} 个文件上传成功, {} 个文件上传失败, {:.2}s elapsed.",
+                            "🚀 文件夹 {} 上传完成\n🔥 共 {} 个文件上传成功, {} 个文件上传失败, {:.2}s elapsed.",
                             path.to_str().unwrap(),
                             success,
                             fail,
@@ -263,27 +271,42 @@ async fn main() {
                 if let Some(e) = guess.first() {
                     me = e;
                 }
-                let resp = client
-                    .put_big_object(
-                        &file_name,
-                        &key_name,
-                        Some(me),
-                        None,
-                        None,
-                        e.part_size,
-                        e.max_threads,
-                    )
-                    .await;
+                let resp = if !e.no_progress_bar {
+                    client
+                        .put_big_object_progress_bar(
+                            &file_name,
+                            &key_name,
+                            Some(me),
+                            None,
+                            None,
+                            e.part_size,
+                            e.max_threads,
+                            None,
+                        )
+                        .await
+                } else {
+                    client
+                        .put_big_object(
+                            &file_name,
+                            &key_name,
+                            Some(me),
+                            None,
+                            None,
+                            e.part_size,
+                            e.max_threads,
+                        )
+                        .await
+                };
                 if resp.error_no != ErrNo::SUCCESS {
                     eprintln!(
                         "{}",
-                        format!("{} 上传失败, {}", &file_name, resp.error_message).red()
+                        format!("😭 {} 上传失败, {}", &file_name, resp.error_message).red()
                     );
                 } else {
                     println!(
                         "{}",
                         format!(
-                            "{} 上传成功 ✅, {:.2}s elapsed.",
+                            "🚀 {} 上传成功, {:.2}s elapsed.",
                             &file_name,
                             start.elapsed().as_secs_f64()
                         )
@@ -291,21 +314,32 @@ async fn main() {
                     );
                     // https://bucket-1256650966.cos.ap-beijing.myqcloud.com
                     let download_url = match config.domain {
-                        Some(domain) => format!("https://{domain}/{key_name}"),
+                        Some(domain) => {
+                            if !domain.is_empty() {
+                                format!("https://{domain}/{key_name}")
+                            } else {
+                                format!(
+                                    "https://{}.cos.{}.myqcloud.com/{key_name}",
+                                    config.bucket_name, config.region
+                                )
+                            }
+                        }
                         None => format!(
                             "https://{}.cos.{}.myqcloud.com/{key_name}",
                             config.bucket_name, config.region
                         ),
                     };
-                    println!("{}", download_url.yellow());
-                    let code = QrCode::new(download_url).unwrap();
-                    let image = code
-                        .render::<unicode::Dense1x2>()
-                        .module_dimensions(1, 1)
-                        .dark_color(unicode::Dense1x2::Light)
-                        .light_color(unicode::Dense1x2::Dark)
-                        .build();
-                    println!("{}", image);
+                    println!("🔗 {}", download_url.yellow());
+                    if !e.no_qrcode {
+                        let code = QrCode::new(download_url).unwrap();
+                        let image = code
+                            .render::<unicode::Dense1x2>()
+                            .module_dimensions(1, 1)
+                            .dark_color(unicode::Dense1x2::Light)
+                            .light_color(unicode::Dense1x2::Dark)
+                            .build();
+                        println!("{}", image);
+                    }
                 }
             }
             Commands::Download(e) => {
@@ -326,12 +360,12 @@ async fn main() {
                 }
                 let resp = client.get_object(&key_name, &file_name).await;
                 if resp.error_no != ErrNo::SUCCESS {
-                    eprintln!("{}", format!("下载失败, {}", resp.error_message).red());
+                    eprintln!("{}", format!("😭 下载失败, {}", resp.error_message).red());
                 } else {
                     println!(
                         "{}",
                         format!(
-                            "下载成功, 文件放在 {} {:.2}s elapsed.",
+                            "🚀 下载成功, 文件放在 {} {:.2}s elapsed.",
                             file_name,
                             start.elapsed().as_secs_f64()
                         )
@@ -342,11 +376,15 @@ async fn main() {
             Commands::Delete(e) => {
                 let resp = client.delete_object(&e.key_name).await;
                 if resp.error_no != ErrNo::SUCCESS {
-                    eprintln!("{}", format!("删除失败, {}", resp.error_message).red());
+                    eprintln!("{}", format!("😭 删除失败, {}", resp.error_message).red());
                 } else {
                     println!(
                         "{}",
-                        format!("删除成功, {:.2}mss elapsed.", start.elapsed().as_millis()).green()
+                        format!(
+                            "🚀 删除成功, {:.2}mss elapsed.",
+                            start.elapsed().as_millis()
+                        )
+                        .green()
                     );
                 }
             }
@@ -358,7 +396,7 @@ async fn main() {
                 match Shell::from_str(&shell.to_lowercase()) {
                     Ok(shell) => generate(shell, &mut cmd, bin_name, &mut io::stdout()),
                     Err(e) => {
-                        eprintln!("{}", format!("生成补全脚本失败, {}", e).red());
+                        eprintln!("{}", format!("😭 生成补全脚本失败, {}", e).red());
                         exit(1)
                     }
                 };

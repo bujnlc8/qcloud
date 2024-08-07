@@ -2,5 +2,5 @@ secrect_key = "foo"
 secrect_id = "bar"
 bucket_name = "bucket_name"
 region = "region"
-# 自定义下载域名
+# 自定义下载域名，可选
 domain=""
