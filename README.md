@@ -5,7 +5,7 @@
 
 一个操作腾讯云对象存储的命令行工具。
 
-支持文件(夹)的上传，文件下载及删除
+支持文件(夹)的上传，文件下载及删除，支持显示进度条，支持多线程
 
 ![](./snapshot.png)
 
@@ -15,7 +15,9 @@
 
 OR
 
-cargo install --path .
+```
+cargo install qcloud --locked
+```
 
 ## 配置
 
@@ -39,6 +41,8 @@ cargo install --path .
 qcloud upload -f 本地文件 [-k 对象key-name]
 
 # 下载文件
+# 支持多线程下载
+# 支持显示进度条
 qcloud download -k 对象key-name [-f 本地保存文件名称]
 
 # 删除文件

@@ -122,6 +122,14 @@ struct Download {
     /// 本地保存文件名称, 如果未指定，和对象名称相同
     #[clap(short, long)]
     file_name: Option<String>,
+
+    /// 下载线程数量，默认5
+    #[clap(long)]
+    threads: Option<u8>,
+
+    /// 不显示下载进度条
+    #[clap(long)]
+    no_progress_bar: bool,
 }
 
 #[derive(clap::Args)]
@@ -358,7 +366,13 @@ async fn main() {
                         fs::create_dir_all(parent).await.unwrap();
                     }
                 }
-                let resp = client.get_object(&key_name, &file_name).await;
+                let resp = if e.no_progress_bar {
+                    client.get_object(&key_name, &file_name, e.threads).await
+                } else {
+                    client
+                        .get_object_progress_bar(&key_name, &file_name, e.threads, None)
+                        .await
+                };
                 if resp.error_no != ErrNo::SUCCESS {
                     eprintln!("{}", format!("😭 下载失败, {}", resp.error_message).red());
                 } else {

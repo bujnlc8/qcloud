@@ -1,6 +1,6 @@
 [package]
 name = "qcloud"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 description = "A CLI to operate Tencent cloud object storage"
 license = "MIT"
@@ -10,7 +10,7 @@ categories = ["command-line-utilities"]
 exclude = ["snapshot.png"]
 
 [dependencies]
-qcos = {version = "0.1.8", features = ["progress-bar"]}
+qcos = {version = "0.1.9", features = ["progress-bar"]}
 clap = {version = "4", features = ["derive"]}
 clap_complete = "4"
 toml = "0.5.8"
