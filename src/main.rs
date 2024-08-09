@@ -4,7 +4,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 use clap_complete::{generate, Shell};
 use colored::Colorize;
-use qcos::objects::{mime, ErrNo, Objects};
+use qcos::objects::{ErrNo, Objects};
 use qrcode::{render::unicode, QrCode};
 use serde::{Deserialize, Serialize};
 use std::{io, path::PathBuf, process::exit, str::FromStr};
@@ -19,6 +19,7 @@ struct Config {
     domain: Option<String>,
 }
 
+// 将列表分块
 fn split_into_chunks<T>(list: Vec<T>, chunk_count: usize) -> Vec<Vec<T>>
 where
     T: Clone,
@@ -59,6 +60,43 @@ fn get_config_path(path: Option<String>) -> String {
             c.to_str().unwrap().to_string()
         }
     }
+}
+
+// 获取下载链接
+fn get_download_url(
+    domain: Option<String>,
+    bucket_name: &str,
+    key_name: &str,
+    region: &str,
+) -> String {
+    match domain {
+        Some(domain) => {
+            if !domain.is_empty() {
+                format!("https://{domain}/{key_name}")
+            } else {
+                format!("https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}",)
+            }
+        }
+        None => format!("https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}",),
+    }
+}
+
+// 遍历目录
+fn walk_dir(dir: PathBuf) -> Vec<PathBuf> {
+    let mut res = Vec::new();
+    if dir.is_dir() {
+        for item in dir.read_dir().unwrap() {
+            let item_path = item.unwrap().path();
+            if item_path.is_file() {
+                res.push(item_path);
+            } else {
+                res.extend(walk_dir(item_path));
+            }
+        }
+    } else {
+        res.push(dir);
+    }
+    res
 }
 
 #[derive(Parser)]
@@ -139,23 +177,6 @@ struct Delete {
     key_name: String,
 }
 
-fn walk_dir(dir: PathBuf) -> Vec<PathBuf> {
-    let mut res = Vec::new();
-    if dir.is_dir() {
-        for item in dir.read_dir().unwrap() {
-            let item_path = item.unwrap().path();
-            if item_path.is_file() {
-                res.push(item_path);
-            } else {
-                res.extend(walk_dir(item_path));
-            }
-        }
-    } else {
-        res.push(dir);
-    }
-    res
-}
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -188,12 +209,20 @@ async fn main() {
                     }
                     // 最多30个线程上传
                     let item_path_list = split_into_chunks(item_path, 30);
+                    let dir_name = PathBuf::from(file_name.clone())
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
                     let mut handles = vec![];
                     for item_paths in item_path_list {
                         let item_paths = item_paths.clone();
                         let file_name = file_name.clone();
                         let key_name = e.key_name.clone();
                         let client = client.clone();
+                        let config = config.clone();
+                        let dir_name = dir_name.clone();
                         let handle = tokio::spawn(async move {
                             let mut success = 0;
                             let mut fail = 0;
@@ -203,24 +232,19 @@ async fn main() {
                                     let dest_dir = dest_dir.strip_prefix("/").unwrap_or(dest_dir);
                                     let dest_dir = dest_dir.strip_suffix("/").unwrap_or(dest_dir);
                                     object_name = format!(
-                                        "{dest_dir}/{}",
+                                        "{dest_dir}/{dir_name}/{}",
                                         object_name
                                             .strip_prefix(&file_name)
                                             .unwrap_or(&object_name)
                                     );
-                                    object_name = object_name.replace("//", "/");
-                                }
-                                let mut content_type = mime::APPLICATION_OCTET_STREAM;
-                                let guess = mime_guess::from_path(&item);
-                                if let Some(e) = guess.first() {
-                                    content_type = e;
+                                    object_name = object_name.replace("//", "/").to_lowercase();
                                 }
                                 let resp = client
                                     .clone()
                                     .put_big_object(
                                         item.to_str().unwrap(),
                                         &object_name,
-                                        Some(content_type),
+                                        None,
                                         None,
                                         None,
                                         e.part_size,
@@ -229,19 +253,24 @@ async fn main() {
                                     .await;
                                 if resp.error_no != ErrNo::SUCCESS {
                                     eprintln!(
-                                        "{}",
-                                        format!(
-                                            "{} 上传失败, {}",
-                                            item.to_str().unwrap(),
-                                            resp.error_message
-                                        )
-                                        .red()
+                                        "😭 {} -> {} 上传失败, [{}] {}",
+                                        item.to_str().unwrap().green(),
+                                        object_name.yellow(),
+                                        resp.error_no,
+                                        resp.error_message.red(),
                                     );
                                     fail += 1;
                                 } else {
                                     println!(
-                                        "{}",
-                                        format!("{} 上传成功 ✅", item.to_str().unwrap()).green()
+                                        "🚀 {} -> {} 上传成功\n🔗 {}\n",
+                                        item.to_str().unwrap().green(),
+                                        object_name.yellow(),
+                                        get_download_url(
+                                            config.domain.clone(),
+                                            &config.bucket_name,
+                                            &object_name,
+                                            &config.region
+                                        )
                                     );
                                     success += 1;
                                 }
@@ -258,33 +287,25 @@ async fn main() {
                         fail += res.1;
                     }
                     println!(
-                        "{}",
-                        format!(
-                            "🚀 文件夹 {} 上传完成\n🔥 共 {} 个文件上传成功, {} 个文件上传失败, {:.2}s elapsed.",
-                            path.to_str().unwrap(),
-                            success,
-                            fail,
-                            start.elapsed().as_secs_f64()
-                        )
-                        .green()
+                        "🚀 文件夹 {} 上传完成\n🔥 {} 个文件上传成功, {} 个文件上传失败, {:.2}s elapsed.",
+                        path.to_str().unwrap().green(),
+                        success.to_string().green(),
+                        fail.to_string().red(),
+                        start.elapsed().as_secs_f64(),
                     );
                     return;
                 }
-                let key_name = match e.key_name {
+                let mut key_name = match e.key_name {
                     Some(key_name) => key_name,
                     None => format!("uploads/{}", file_name),
                 };
-                let mut me = mime::APPLICATION_OCTET_STREAM;
-                let guess = mime_guess::from_path(file_name.as_str());
-                if let Some(e) = guess.first() {
-                    me = e;
-                }
+                key_name = key_name.replace("//", "/");
                 let resp = if !e.no_progress_bar {
                     client
                         .put_big_object_progress_bar(
                             &file_name,
                             &key_name,
-                            Some(me),
+                            None,
                             None,
                             None,
                             e.part_size,
@@ -297,7 +318,7 @@ async fn main() {
                         .put_big_object(
                             &file_name,
                             &key_name,
-                            Some(me),
+                            None,
                             None,
                             None,
                             e.part_size,
@@ -307,36 +328,25 @@ async fn main() {
                 };
                 if resp.error_no != ErrNo::SUCCESS {
                     eprintln!(
-                        "{}",
-                        format!("😭 {} 上传失败, {}", &file_name, resp.error_message).red()
+                        "😭 {} -> {} 上传失败, [{}] {}",
+                        file_name.green(),
+                        key_name.yellow(),
+                        resp.error_no,
+                        resp.error_message.red(),
                     );
                 } else {
                     println!(
-                        "{}",
-                        format!(
-                            "🚀 {} 上传成功, {:.2}s elapsed.",
-                            &file_name,
-                            start.elapsed().as_secs_f64()
-                        )
-                        .green(),
+                        "🚀 {} -> {} 上传成功, {:.2}s elapsed.",
+                        &file_name.green(),
+                        key_name.yellow(),
+                        start.elapsed().as_secs_f64()
                     );
-                    // https://bucket-1256650966.cos.ap-beijing.myqcloud.com
-                    let download_url = match config.domain {
-                        Some(domain) => {
-                            if !domain.is_empty() {
-                                format!("https://{domain}/{key_name}")
-                            } else {
-                                format!(
-                                    "https://{}.cos.{}.myqcloud.com/{key_name}",
-                                    config.bucket_name, config.region
-                                )
-                            }
-                        }
-                        None => format!(
-                            "https://{}.cos.{}.myqcloud.com/{key_name}",
-                            config.bucket_name, config.region
-                        ),
-                    };
+                    let download_url = get_download_url(
+                        config.domain.clone(),
+                        &config.bucket_name,
+                        &key_name,
+                        &config.region,
+                    );
                     println!("🔗 {}", download_url.yellow());
                     if !e.no_qrcode {
                         let code = QrCode::new(download_url).unwrap();
@@ -377,28 +387,26 @@ async fn main() {
                     eprintln!("{}", format!("😭 下载失败, {}", resp.error_message).red());
                 } else {
                     println!(
-                        "{}",
-                        format!(
-                            "🚀 下载成功, 文件放在 {} {:.2}s elapsed.",
-                            file_name,
-                            start.elapsed().as_secs_f64()
-                        )
-                        .green()
+                        "🚀 下载成功 {}, {:.2}s elapsed.",
+                        file_name.green(),
+                        start.elapsed().as_secs_f64()
                     );
                 }
             }
             Commands::Delete(e) => {
                 let resp = client.delete_object(&e.key_name).await;
                 if resp.error_no != ErrNo::SUCCESS {
-                    eprintln!("{}", format!("😭 删除失败, {}", resp.error_message).red());
+                    eprintln!(
+                        "😭 删除失败 {}, [{}] {}",
+                        e.key_name.green(),
+                        resp.error_no,
+                        resp.error_message.red(),
+                    );
                 } else {
                     println!(
-                        "{}",
-                        format!(
-                            "🚀 删除成功, {:.2}mss elapsed.",
-                            start.elapsed().as_millis()
-                        )
-                        .green()
+                        "🚀 删除成功 {}, {:.2}mss elapsed.",
+                        e.key_name.green(),
+                        start.elapsed().as_millis()
                     );
                 }
             }
@@ -410,7 +418,7 @@ async fn main() {
                 match Shell::from_str(&shell.to_lowercase()) {
                     Ok(shell) => generate(shell, &mut cmd, bin_name, &mut io::stdout()),
                     Err(e) => {
-                        eprintln!("{}", format!("😭 生成补全脚本失败, {}", e).red());
+                        eprintln!("😭 生成补全脚本失败, {}", e.red());
                         exit(1)
                     }
                 };
@@ -436,6 +444,7 @@ mod test {
         assert_eq!(res.bucket_name, "bucket_name");
         assert_eq!(res.secrect_key, "foo");
         assert_eq!(res.secrect_id, "bar");
+        assert!(res.domain.is_some_and(|x| x == "static.example.com"));
     }
 
     #[test]

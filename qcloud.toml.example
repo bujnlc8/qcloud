@@ -3,4 +3,4 @@ secrect_id = "bar"
 bucket_name = "bucket_name"
 region = "region"
 # 自定义下载域名，可选
-domain=""
+domain="static.example.com"
