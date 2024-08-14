@@ -7,7 +7,7 @@ use colored::Colorize;
 use qcos::objects::{ErrNo, Objects};
 use qrcode::{render::unicode, QrCode};
 use serde::{Deserialize, Serialize};
-use std::{io, path::PathBuf, process::exit, str::FromStr};
+use std::{io, path::PathBuf, process::exit, str::FromStr, time::SystemTime};
 use tokio::fs::{self, read_to_string};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,15 +69,25 @@ fn get_download_url(
     key_name: &str,
     region: &str,
 ) -> String {
+    let ts = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     match domain {
         Some(domain) => {
             if !domain.is_empty() {
-                format!("https://{domain}/{key_name}")
+                format!("https://{domain}/{key_name}?t={:2x}", ts)
             } else {
-                format!("https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}",)
+                format!(
+                    "https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}?t={:2x}",
+                    ts
+                )
             }
         }
-        None => format!("https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}",),
+        None => format!(
+            "https://{bucket_name}.cos.{region}.myqcloud.com/{key_name}?t={:2x}",
+            ts
+        ),
     }
 }
 
@@ -129,9 +139,9 @@ enum Commands {
 struct Upload {
     /// 本地文件路径，支持上传文件夹
     #[clap(short, long)]
-    file_path: String,
+    file_path: PathBuf,
 
-    /// 对象名称, 如果未指定，和本地文件名称相同，如果是上传文件夹，则是目录名称
+    /// 对象名称, 如果未指定，和文件名称相同，如果是上传文件夹，则是目录名称
     #[clap(short, long)]
     key_name: Option<String>,
 
@@ -195,8 +205,8 @@ async fn main() {
     match cli.command {
         Some(command) => match command {
             Commands::Upload(e) => {
-                let file_name = e.file_path;
-                let path = std::path::Path::new(&file_name);
+                let file_path = e.file_path;
+                let path = std::path::Path::new(&file_path);
                 if !path.exists() {
                     eprintln!("{}", "文件不存在或不可读！".red());
                     exit(1);
@@ -209,7 +219,8 @@ async fn main() {
                     }
                     // 最多30个线程上传
                     let item_path_list = split_into_chunks(item_path, 30);
-                    let dir_name = PathBuf::from(file_name.clone())
+                    let dir_name = file_path
+                        .clone()
                         .file_stem()
                         .unwrap()
                         .to_str()
@@ -218,7 +229,7 @@ async fn main() {
                     let mut handles = vec![];
                     for item_paths in item_path_list {
                         let item_paths = item_paths.clone();
-                        let file_name = file_name.clone();
+                        let file_name = file_path.clone();
                         let key_name = e.key_name.clone();
                         let client = client.clone();
                         let config = config.clone();
@@ -234,7 +245,7 @@ async fn main() {
                                     object_name = format!(
                                         "{dest_dir}/{dir_name}/{}",
                                         object_name
-                                            .strip_prefix(&file_name)
+                                            .strip_prefix(file_name.to_str().unwrap())
                                             .unwrap_or(&object_name)
                                     );
                                     object_name = object_name.replace("//", "/").to_lowercase();
@@ -242,7 +253,7 @@ async fn main() {
                                 let resp = client
                                     .clone()
                                     .put_big_object(
-                                        item.to_str().unwrap(),
+                                        &item,
                                         &object_name,
                                         None,
                                         None,
@@ -297,13 +308,16 @@ async fn main() {
                 }
                 let mut key_name = match e.key_name {
                     Some(key_name) => key_name,
-                    None => format!("uploads/{}", file_name),
+                    None => format!(
+                        "uploads/{}",
+                        file_path.file_name().unwrap().to_str().unwrap()
+                    ),
                 };
                 key_name = key_name.replace("//", "/");
                 let resp = if !e.no_progress_bar {
                     client
                         .put_big_object_progress_bar(
-                            &file_name,
+                            &file_path,
                             &key_name,
                             None,
                             None,
@@ -316,7 +330,7 @@ async fn main() {
                 } else {
                     client
                         .put_big_object(
-                            &file_name,
+                            &file_path,
                             &key_name,
                             None,
                             None,
@@ -329,7 +343,7 @@ async fn main() {
                 if resp.error_no != ErrNo::SUCCESS {
                     eprintln!(
                         "😭 {} -> {} 上传失败, [{}] {}",
-                        file_name.green(),
+                        file_path.to_str().unwrap().green(),
                         key_name.yellow(),
                         resp.error_no,
                         resp.error_message.red(),
@@ -337,7 +351,7 @@ async fn main() {
                 } else {
                     println!(
                         "🚀 {} -> {} 上传成功, {:.2}s elapsed.",
-                        &file_name.green(),
+                        file_path.to_str().unwrap().green(),
                         key_name.yellow(),
                         start.elapsed().as_secs_f64()
                     );
