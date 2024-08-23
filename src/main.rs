@@ -4,7 +4,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 use clap_complete::{generate, Shell};
 use colored::Colorize;
-use qcos::objects::{ErrNo, Objects};
+use qcos::objects::ErrNo;
 use qrcode::{render::unicode, QrCode};
 use serde::{Deserialize, Serialize};
 use std::{io, path::PathBuf, process::exit, str::FromStr, time::SystemTime};
