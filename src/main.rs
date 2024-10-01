@@ -206,8 +206,12 @@ async fn main() {
     match cli.command {
         Some(command) => match command {
             Commands::Upload(e) => {
-                let file_path = e.file_path;
+                if e.part_size.is_some_and(|x| x > 1024) {
+                    eprintln!("{}", "分片大小不能大于1024MB！".red());
+                    exit(1);
+                }
                 let part_size = e.part_size.map(|e| e * 1024 * 1024);
+                let file_path = e.file_path;
                 let path = std::path::Path::new(&file_path);
                 if !path.exists() {
                     eprintln!("{}", "文件不存在或不可读！".red());
