@@ -1,6 +1,6 @@
 [package]
 name = "qcloud"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 description = "A CLI to operate Tencent cloud object storage"
 license = "MIT"
