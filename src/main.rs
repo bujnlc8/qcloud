@@ -4,6 +4,8 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 use clap_complete::{generate, Shell};
 use colored::Colorize;
+use mime_guess::MimeGuess;
+use qcos::objects::mime;
 use qcos::objects::ErrNo;
 use qrcode::{render::unicode, QrCode};
 use serde::{Deserialize, Serialize};
@@ -74,6 +76,7 @@ fn get_download_url(
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
+    let key_name = key_name.replace(" ", "%20");
     match domain {
         Some(domain) => {
             if !domain.is_empty() {
@@ -256,12 +259,14 @@ async fn main() {
                                     );
                                     object_name = object_name.replace("//", "/").to_lowercase();
                                 }
+                                let content_type = MimeGuess::from_path(&item)
+                                    .first_or(mime::APPLICATION_OCTET_STREAM);
                                 let resp = client
                                     .clone()
                                     .put_big_object(
                                         &item,
                                         &object_name,
-                                        None,
+                                        Some(content_type),
                                         None,
                                         None,
                                         part_size,
@@ -319,13 +324,15 @@ async fn main() {
                         file_path.file_name().unwrap().to_str().unwrap()
                     ),
                 };
+                let content_type =
+                    MimeGuess::from_path(&file_path).first_or(mime::APPLICATION_OCTET_STREAM);
                 key_name = key_name.replace("//", "/");
                 let resp = if !e.no_progress_bar {
                     client
                         .put_big_object_progress_bar(
                             &file_path,
                             &key_name,
-                            None,
+                            Some(content_type),
                             None,
                             None,
                             part_size,
@@ -338,7 +345,7 @@ async fn main() {
                         .put_big_object(
                             &file_path,
                             &key_name,
-                            None,
+                            Some(content_type),
                             None,
                             None,
                             part_size,
