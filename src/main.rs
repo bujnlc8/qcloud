@@ -24,7 +24,8 @@ fn split_into_chunks<T>(list: Vec<T>, chunk_count: usize) -> Vec<Vec<T>>
 where
     T: Clone,
 {
-    let chunk_size = (list.len() + chunk_count - 1) / chunk_count;
+    //let chunk_size = (list.len() + chunk_count - 1) / chunk_count;
+    let chunk_size = list.len().div_ceil(chunk_count);
     list.chunks(chunk_size)
         .map(|chunk| chunk.to_vec())
         .collect()
@@ -149,7 +150,7 @@ struct Upload {
     #[clap(long)]
     max_threads: Option<u64>,
 
-    /// 分片上传的大小，单位bytes，1M-1GB之间，默认50M
+    /// 分片上传的大小，单位MB，1M-1GB之间，默认50M
     #[clap(long)]
     part_size: Option<u64>,
 
@@ -206,6 +207,7 @@ async fn main() {
         Some(command) => match command {
             Commands::Upload(e) => {
                 let file_path = e.file_path;
+                let part_size = e.part_size.map(|e| e * 1024 * 1024);
                 let path = std::path::Path::new(&file_path);
                 if !path.exists() {
                     eprintln!("{}", "文件不存在或不可读！".red());
@@ -258,7 +260,7 @@ async fn main() {
                                         None,
                                         None,
                                         None,
-                                        e.part_size,
+                                        part_size,
                                         Some(1),
                                     )
                                     .await;
@@ -322,7 +324,7 @@ async fn main() {
                             None,
                             None,
                             None,
-                            e.part_size,
+                            part_size,
                             e.max_threads,
                             None,
                         )
@@ -335,7 +337,7 @@ async fn main() {
                             None,
                             None,
                             None,
-                            e.part_size,
+                            part_size,
                             e.max_threads,
                         )
                         .await
